@@ -1,0 +1,28 @@
+{
+  "name": "goonzette-article-generator",
+  "version": "3.1.0",
+  "description": "CLI tool for generating Daily Gooner articles",
+  "main": "generate-article.js",
+  "bin": {
+    "goonzette-article": "./generate-article.js"
+  },
+  "scripts": {
+    "generate": "node generate-article.js --interactive",
+    "test": "node generate-article.js --author tommy --topic 'Test Article'"
+  },
+  "keywords": [
+    "goonzette",
+    "ai",
+    "articles",
+    "cli"
+  ],
+  "author": "The Goonzette",
+  "license": "MIT",
+  "dependencies": {
+    "node-fetch": "^2.7.0",
+    "dotenv": "^16.3.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

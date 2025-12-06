@@ -1,0 +1,38 @@
+name: Daily Article Generation
+
+on:
+  schedule:
+    # Runs at 8:00 AM CST (2:00 PM UTC) every day
+    - cron: '0 14 * * *'
+  
+  # Allow manual triggering
+  workflow_dispatch:
+
+jobs:
+  generate-articles:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        working-directory: ./article-generator
+        run: npm install
+      
+      - name: Generate daily articles
+        working-directory: ./article-generator
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: node auto-generate.js
+      
+      - name: Notify on failure
+        if: failure()
+        run: echo "Article generation failed"
