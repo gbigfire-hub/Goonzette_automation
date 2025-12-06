@@ -1,0 +1,78 @@
+name: Upload PDF to Netlify
+
+on:
+  # Run after PDF compilation completes
+  workflow_run:
+    workflows: ["Daily Article Generation and PDF Compilation"]
+    types:
+      - completed
+  
+  # Manual trigger
+  workflow_dispatch:
+
+jobs:
+  upload-pdf:
+    runs-on: ubuntu-latest
+    # Only run if the previous workflow succeeded or if manually triggered
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install Netlify CLI
+        run: npm install -g netlify-cli
+      
+      - name: Find latest daily PDF
+        id: find-pdf
+        run: |
+          LATEST_PDF=$(ls -t pdfs/goonzette-daily-*.pdf 2>/dev/null | head -1 || echo "")
+          
+          if [ -z "$LATEST_PDF" ]; then
+            echo "⚠️  No daily PDF found to upload"
+            echo "found=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          echo "found=true" >> $GITHUB_OUTPUT
+          echo "pdf_path=$LATEST_PDF" >> $GITHUB_OUTPUT
+          echo "pdf_name=$(basename $LATEST_PDF)" >> $GITHUB_OUTPUT
+          echo "📄 Found PDF: $LATEST_PDF"
+      
+      - name: Upload PDF to Netlify
+        if: steps.find-pdf.outputs.found == 'true'
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          PDF_PATH="${{ steps.find-pdf.outputs.pdf_path }}"
+          PDF_NAME="${{ steps.find-pdf.outputs.pdf_name }}"
+          
+          echo "📤 Uploading $PDF_NAME to Netlify..."
+          
+          # Create a temporary directory with just the PDF
+          mkdir -p deploy-temp/pdfs
+          cp "$PDF_PATH" deploy-temp/pdfs/
+          
+          # Deploy the PDF (this will merge with existing site)
+          netlify deploy \
+            --dir=deploy-temp \
+            --prod \
+            --auth="$NETLIFY_AUTH_TOKEN" \
+            --site="$NETLIFY_SITE_ID" \
+            --message="Add daily PDF: $PDF_NAME"
+          
+          echo "✅ PDF uploaded successfully!"
+          echo "📍 Available at: https://the-goonzette.netlify.app/pdfs/$PDF_NAME"
+      
+      - name: Cleanup
+        if: always()
+        run: rm -rf deploy-temp
+
