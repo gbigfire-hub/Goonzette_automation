@@ -1,0 +1,52 @@
+name: Emergency PDF Compiler
+
+on:
+  # Manual trigger only
+  workflow_dispatch:
+    inputs:
+      date:
+        description: 'Date to compile (YYYY-MM-DD) - leave empty for yesterday'
+        required: false
+        type: string
+      days_back:
+        description: 'Or compile X days back (1 = yesterday, 2 = day before, etc)'
+        required: false
+        default: '1'
+        type: string
+
+jobs:
+  emergency-compile:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        working-directory: ./article-generator
+        run: npm install
+      
+      - name: Compile articles to PDF
+        working-directory: ./article-generator
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          TARGET_DATE: ${{ github.event.inputs.date }}
+          DAYS_BACK: ${{ github.event.inputs.days_back }}
+        run: node emergency-compile-pdf.js
+      
+      - name: Commit and push PDF
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add pdfs/goonzette-daily-*.pdf || true
+          git commit -m "Add emergency PDF compilation [skip ci]" || true
+          git push || true
+      
+      - name: Notify completion
+        run: echo "✅ PDF compilation complete! Check the pdfs/ folder"
