@@ -99,16 +99,21 @@ async function main() {
         console.log(`   Topic: ${topic}`);
         
         try {
-            // Get Discord summary if Tommy
+            // Get Discord summary only for Tommy
             let context = '';
+            let useDiscord = false;
+            
             if (authorKey === 'tommy') {
                 context = await getDiscordSummary();
                 if (context) {
                     console.log('   ✅ Loaded Discord summary');
+                    useDiscord = true;
+                } else {
+                    console.log('   ⚠️  No Discord summary available - using general topic');
                 }
             }
             
-            await generateAndPublish(author.key, topic, context);
+            await generateAndPublish(author.key, topic, context, useDiscord);
             console.log('   ✅ Article published');
             
             // Wait 2 seconds between articles
@@ -127,14 +132,24 @@ async function main() {
 // ARTICLE GENERATION
 // ===================================
 
-async function generateAndPublish(authorKey, topic, context = '') {
+async function generateAndPublish(authorKey, topic, context = '', useDiscord = false) {
     const style = AUTHOR_STYLES[authorKey];
     
     let userPrompt = `Write an article about: ${topic}\n\n`;
     
-    if (context && authorKey === 'tommy_wharangi') {
-        userPrompt += `Recent Discord Context:\n${context}\n\n`;
-        userPrompt += `Reference specific Discord moments when relevant.\n\n`;
+    // Only include Discord context if it actually exists
+    if (context && useDiscord && authorKey === 'tommy_wharangi') {
+        userPrompt += `REAL Discord Activity from Yesterday:\n${context}\n\n`;
+        userPrompt += `IMPORTANT INSTRUCTIONS:\n`;
+        userPrompt += `- Reference ONLY the specific Discord moments provided above\n`;
+        userPrompt += `- Do NOT invent or fabricate any Discord conversations, usernames, or events\n`;
+        userPrompt += `- If the Discord context is vague or minimal, focus more on the general topic\n`;
+        userPrompt += `- Use Discord examples naturally when they fit the narrative\n\n`;
+    } else if (authorKey === 'tommy_wharangi') {
+        // Tommy without Discord data
+        userPrompt += `NOTE: No Discord activity data available today.\n`;
+        userPrompt += `Write about ${topic} from your general perspective without referencing specific Discord conversations.\n`;
+        userPrompt += `Do NOT invent or make up Discord activity, usernames, or server events.\n\n`;
     }
     
     userPrompt += `Write a complete article (600-800 words) in your distinctive voice. Include a compelling title.`;
@@ -181,8 +196,8 @@ async function generateAndPublish(authorKey, topic, context = '') {
         }
     }
     
-    // Save to database
-    await publishArticle(authorKey, title, content, topic, context);
+    // Save to database (only save context if Discord was actually used)
+    await publishArticle(authorKey, title, content, topic, useDiscord ? context : null);
 }
 
 async function publishArticle(authorKey, title, content, topic, discordContext) {

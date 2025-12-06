@@ -258,11 +258,20 @@ async function generateAndPublish(authorKey, topic, context = '') {
         
         if (context.trim()) {
             if (authorKey === 'tommy') {
-                userPrompt += `Recent Discord Context:\n${context}\n\n`;
-                userPrompt += `Use these Discord moments as inspiration for your article. Reference specific quotes or discussions when relevant.\n\n`;
+                userPrompt += `REAL Discord Activity:\n${context}\n\n`;
+                userPrompt += `IMPORTANT INSTRUCTIONS:\n`;
+                userPrompt += `- Reference ONLY the specific Discord moments provided above\n`;
+                userPrompt += `- Do NOT invent or fabricate any Discord conversations, usernames, or events\n`;
+                userPrompt += `- Use these real Discord examples naturally when they fit your narrative\n`;
+                userPrompt += `- If the provided context is minimal, focus more on the general topic\n\n`;
             } else {
                 userPrompt += `Background Context:\n${context}\n\n`;
+                userPrompt += `Use this context as background information. Do not invent additional details.\n\n`;
             }
+        } else if (authorKey === 'tommy') {
+            userPrompt += `NOTE: No Discord activity data available.\n`;
+            userPrompt += `Write about ${topic} from your perspective without referencing Discord.\n`;
+            userPrompt += `Do NOT make up Discord conversations or server events.\n\n`;
         }
         
         userPrompt += `Write a complete article (600-900 words) in your distinctive voice. Include a compelling title.`;
