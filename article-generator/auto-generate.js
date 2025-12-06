@@ -84,8 +84,12 @@ async function main() {
         process.exit(1);
     }
 
-    // Generate articles for selected authors
-    const authorsToday = ['tommy', 'claudia']; // Customize which authors post daily
+    // Generate articles for 2 random authors each day
+    const allAuthors = ['tommy', 'claudia', 'naomi', 'dave'];
+    const authorsToday = selectRandomAuthors(allAuthors, 2);
+    
+    console.log(`📝 Today's authors: ${authorsToday.join(', ')}`);
+    console.log('');
     
     for (const authorKey of authorsToday) {
         const author = AUTHORS[authorKey];
@@ -255,6 +259,17 @@ async function getDiscordSummary() {
 
 function selectRandomTopic(topics) {
     return topics[Math.floor(Math.random() * topics.length)];
+}
+
+function selectRandomAuthors(authors, count) {
+    // Shuffle array using Fisher-Yates algorithm
+    const shuffled = [...authors];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    // Return first 'count' authors
+    return shuffled.slice(0, count);
 }
 
 function sleep(ms) {

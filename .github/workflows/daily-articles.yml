@@ -1,16 +1,62 @@
-name: Daily Article Generation
+name: Daily Article Generation and PDF Compilation
 
 on:
   schedule:
-    # Runs at 8:00 AM CST (2:00 PM UTC) every day
+    # Compile PDF at 7:55 AM CST (1:55 PM UTC)
+    - cron: '55 13 * * *'
+    # Generate articles at 8:00 AM CST (2:00 PM UTC)
     - cron: '0 14 * * *'
   
   # Allow manual triggering
   workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to run'
+        required: true
+        default: 'both'
+        type: choice
+        options:
+          - both
+          - pdf-only
+          - articles-only
 
 jobs:
+  compile-pdf:
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '55 13 * * *' || github.event.inputs.action == 'pdf-only' || github.event.inputs.action == 'both'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        working-directory: ./article-generator
+        run: npm install
+      
+      - name: Compile yesterday's articles to PDF
+        working-directory: ./article-generator
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: node compile-pdf.js
+      
+      - name: Commit and push PDF
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add pdfs/goonzette-daily-*.pdf || true
+          git commit -m "Add daily newsletter PDF [skip ci]" || true
+          git push || true
+  
   generate-articles:
     runs-on: ubuntu-latest
+    needs: compile-pdf
+    if: always() && (github.event.schedule == '0 14 * * *' || github.event.inputs.action == 'articles-only' || github.event.inputs.action == 'both')
     
     steps:
       - name: Checkout repository
