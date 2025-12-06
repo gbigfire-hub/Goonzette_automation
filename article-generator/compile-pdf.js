@@ -39,7 +39,7 @@ async function main() {
 
     // Get yesterday's date
     const yesterday = new Date();
-    yesterday.setDate(yesterday.setDate() - 1);
+    yesterday.setDate(yesterday.getDate() - 1);
     const dateString = yesterday.toISOString().split('T')[0];
     
     console.log(`📅 Fetching articles from: ${dateString}`);
