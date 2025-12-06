@@ -13,22 +13,11 @@ on:
 jobs:
   upload-pdf:
     runs-on: ubuntu-latest
-    # Only run if the previous workflow succeeded or if manually triggered
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 1
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-      
-      - name: Install Netlify CLI
-        run: npm install -g netlify-cli
       
       - name: Find latest daily PDF
         id: find-pdf
@@ -46,33 +35,73 @@ jobs:
           echo "pdf_name=$(basename $LATEST_PDF)" >> $GITHUB_OUTPUT
           echo "📄 Found PDF: $LATEST_PDF"
       
-      - name: Upload PDF to Netlify
+      - name: Download current Netlify site
         if: steps.find-pdf.outputs.found == 'true'
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
         run: |
+          echo "📥 Downloading current site from Netlify..."
+          
+          # Get the current published deploy ID
+          DEPLOY_ID=$(curl -s -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" \
+            "https://api.netlify.com/api/v1/sites/$NETLIFY_SITE_ID" | \
+            jq -r '.published_deploy.id')
+          
+          echo "Current deploy ID: $DEPLOY_ID"
+          
+          # Download the current site
+          curl -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" \
+            "https://api.netlify.com/api/v1/deploys/$DEPLOY_ID/files" \
+            -o site.zip
+          
+          # Extract it
+          unzip -q site.zip -d current-site || mkdir -p current-site
+          
+          echo "✅ Site downloaded"
+      
+      - name: Add PDF to site
+        if: steps.find-pdf.outputs.found == 'true'
+        run: |
           PDF_PATH="${{ steps.find-pdf.outputs.pdf_path }}"
           PDF_NAME="${{ steps.find-pdf.outputs.pdf_name }}"
           
-          echo "📤 Uploading $PDF_NAME to Netlify..."
+          echo "📄 Adding $PDF_NAME to site..."
           
-          # Create a temporary directory with just the PDF
-          mkdir -p deploy-temp/pdfs
-          cp "$PDF_PATH" deploy-temp/pdfs/
+          # Create pdfs directory if it doesn't exist
+          mkdir -p current-site/pdfs
           
-          # Deploy the PDF (this will merge with existing site)
+          # Copy the new PDF
+          cp "$PDF_PATH" "current-site/pdfs/$PDF_NAME"
+          
+          echo "✅ PDF added to site files"
+      
+      - name: Deploy updated site
+        if: steps.find-pdf.outputs.found == 'true'
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          PDF_NAME="${{ steps.find-pdf.outputs.pdf_name }}"
+          
+          echo "📤 Deploying updated site to Netlify..."
+          
+          # Install Netlify CLI
+          npm install -g netlify-cli
+          
+          # Deploy the complete site (with new PDF added)
           netlify deploy \
-            --dir=deploy-temp \
+            --dir=current-site \
             --prod \
             --auth="$NETLIFY_AUTH_TOKEN" \
             --site="$NETLIFY_SITE_ID" \
             --message="Add daily PDF: $PDF_NAME"
           
-          echo "✅ PDF uploaded successfully!"
-          echo "📍 Available at: https://the-goonzette.netlify.app/pdfs/$PDF_NAME"
+          echo "✅ Site deployed successfully!"
+          echo "📍 PDF available at: https://the-goonzette.netlify.app/pdfs/$PDF_NAME"
       
       - name: Cleanup
         if: always()
-        run: rm -rf deploy-temp
+        run: |
+          rm -rf current-site site.zip
 
